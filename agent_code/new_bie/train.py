@@ -8,4 +8,4 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     return self.model.game_events_occurred(old_game_state, self_action, new_game_state, events)
     
 def end_of_round(self, last_game_states, last_action, events):
-    ...
+    return self.model.end_of_round(last_game_states, last_action, events)
