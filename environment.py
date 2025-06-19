@@ -13,7 +13,7 @@ import numpy as np
 
 import events as e
 import settings as s
-from agents import Agent, SequentialAgentBackend
+from agents import Agent, SequentialAgentBackend, ProcessAgentBackend
 from fallbacks import pygame
 from items import Coin, Explosion, Bomb
 

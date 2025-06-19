@@ -1,0 +1,118 @@
+{
+    "by_agent": {
+        "rule_based_agent_0": {
+            "bombs": 225,
+            "coins": 27,
+            "crates": 336,
+            "invalid": 86,
+            "kills": 1,
+            "moves": 2450,
+            "rounds": 10,
+            "score": 32,
+            "steps": 2762,
+            "suicides": 7,
+            "time": 4.4504475593566895
+        },
+        "rule_based_agent_1": {
+            "bombs": 164,
+            "coins": 20,
+            "crates": 311,
+            "invalid": 56,
+            "kills": 1,
+            "moves": 1830,
+            "rounds": 10,
+            "score": 25,
+            "steps": 2058,
+            "suicides": 5,
+            "time": 3.266411781311035
+        },
+        "rule_based_agent_2": {
+            "bombs": 179,
+            "coins": 22,
+            "crates": 327,
+            "invalid": 61,
+            "kills": 1,
+            "moves": 1719,
+            "rounds": 10,
+            "score": 27,
+            "steps": 1971,
+            "suicides": 6,
+            "time": 2.996464490890503
+        },
+        "rule_based_agent_3": {
+            "bombs": 201,
+            "coins": 20,
+            "crates": 279,
+            "invalid": 81,
+            "kills": 3,
+            "moves": 1975,
+            "rounds": 10,
+            "score": 35,
+            "steps": 2257,
+            "suicides": 7,
+            "time": 3.5583300590515137
+        }
+    },
+    "by_round": {
+        "Round 01 (2025-06-13 21-43-05)": {
+            "coins": 9,
+            "kills": 1,
+            "steps": 294,
+            "suicides": 3
+        },
+        "Round 02 (2025-06-13 21-43-07)": {
+            "coins": 9,
+            "kills": 0,
+            "steps": 190,
+            "suicides": 3
+        },
+        "Round 03 (2025-06-13 21-43-08)": {
+            "coins": 9,
+            "kills": 1,
+            "steps": 400,
+            "suicides": 1
+        },
+        "Round 04 (2025-06-13 21-43-10)": {
+            "coins": 9,
+            "kills": 1,
+            "steps": 293,
+            "suicides": 3
+        },
+        "Round 05 (2025-06-13 21-43-11)": {
+            "coins": 8,
+            "kills": 1,
+            "steps": 364,
+            "suicides": 4
+        },
+        "Round 06 (2025-06-13 21-43-13)": {
+            "coins": 9,
+            "kills": 0,
+            "steps": 305,
+            "suicides": 3
+        },
+        "Round 07 (2025-06-13 21-43-14)": {
+            "coins": 9,
+            "kills": 0,
+            "steps": 400,
+            "suicides": 2
+        },
+        "Round 08 (2025-06-13 21-43-16)": {
+            "coins": 9,
+            "kills": 1,
+            "steps": 400,
+            "suicides": 2
+        },
+        "Round 09 (2025-06-13 21-43-18)": {
+            "coins": 9,
+            "kills": 0,
+            "steps": 314,
+            "suicides": 3
+        },
+        "Round 10 (2025-06-13 21-43-20)": {
+            "coins": 9,
+            "kills": 1,
+            "steps": 400,
+            "suicides": 1
+        }
+    }
+}

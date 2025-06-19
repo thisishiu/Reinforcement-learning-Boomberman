@@ -255,7 +255,7 @@ class AgentRunner:
             self.result_queue.put((event_name, 0, e))
 
 
-class AgentBackend:
+class AgentBackend: # Interface for agent backend
     """
     Base class connecting the agent to a callback implementation.
     """

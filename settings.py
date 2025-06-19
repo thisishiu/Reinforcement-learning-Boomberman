@@ -4,8 +4,8 @@ from pathlib import Path
 from fallbacks import pygame
 
 # Game properties
-COLS = 17
-ROWS = 17
+COLS = 19
+ROWS = 19
 SCENARIOS = {
     "coin-heaven": {
         "CRATE_DENSITY": 0,
@@ -36,11 +36,11 @@ AGENT_COLORS = ['blue', 'green', 'yellow', 'pink']
 
 # Game rules
 BOMB_POWER = 3
-BOMB_TIMER = 4
+BOMB_TIMER = 16
 EXPLOSION_TIMER = 2  # = 1 of bomb explosion + N of lingering around
 
 # Rules for agents
-TIMEOUT = 0.5
+TIMEOUT = 1.5
 TRAIN_TIMEOUT = float("inf")
 REWARD_KILL = 5
 REWARD_COIN = 1
@@ -54,6 +54,8 @@ INPUT_MAP = {
     pygame.K_RETURN: 'WAIT',
     pygame.K_SPACE: 'BOMB',
 }
+
+USER_INPUT = None
 
 # Logging levels
 LOG_GAME = logging.INFO
