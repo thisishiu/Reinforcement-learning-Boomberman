@@ -1,4 +1,5 @@
 import events as e
+import settings as s
 import numpy as np
 import os
 from collections import deque
@@ -14,15 +15,40 @@ WALL = -1
 FREE = 0
 CRATE = 1
 
+COLS = s.COLS
+ROWS = s.ROWS
+TILE = {
+    'WALL': -1,
+    'FREE': 0,
+    'CRATE': 1,
+    'COIN': 2,
+    'OTHER': 3,
+    'DANGER': 4
+}
+ACTION = {
+    'UP': 0,
+    'RIGHT': 1,
+    'DOWN': 2,
+    'LEFT': 3,
+    'WAIT': 4,
+    'BOMB': 5
+}
+
+
 class QLearning:
-    def __init__(self, train=True, epsilon=0.1, alpha=0.5, gamma=0.9, model_path=None, reward_log=None):
+    def __init__(self, train=True, epsilon=0.1, alpha=0.7, gamma=0.8, model_path=None, reward_log=None):
         self.epsilon = epsilon
         self.alpha = alpha
         self.gamma = gamma
         self.train = train
 
-        self.q_table = {}  # Q-value table
-        self.actions = ['UP', 'DOWN', 'LEFT', 'RIGHT', 'WAIT', 'BOMB']
+        # self.q_table = np.random.rand(*(len(TILE)**5 * (COLS-2) * (ROWS-2) * 2, len(ACTION))).astype(np.float16)
+
+        self.q_table = np.random.rand(*(len(TILE)**9 * 2, len(ACTION))).astype(np.float16)
+        # [up, right, down, left, center, vec2others_x, vec2others_y, can_bomb]
+
+        self.actions = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT']
+
         self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
 
         self.model_path = model_path
@@ -36,18 +62,29 @@ class QLearning:
 
 
     def act(self, game_state):
-        state_key = self.take_game_key(game_state)
-        q_values = self.q_table.get(state_key, {a: random.uniform(-2, 0) for a in self.actions})
-        self.q_table.setdefault(state_key, q_values)
+        """
+        Choose an action based on the current game state.
+        Uses epsilon-greedy strategy for exploration vs exploitation.
+        """
+            
+        state_features = self.take_game_features(game_state)
+        state_key = self.feature_to_key(state_features)
+        self.__bombed = None
 
-        best_action = max(q_values, key=q_values.get)
+        if not self.train or random.random() > self.epsilon:
+            self.set_action(game_state)
 
-        if random.random() < self.epsilon:
-            action = random.choice(list(set(self.actions) - {best_action}))
+            actions = {ac: self.q_table[state_key, ACTION[ac]] for ac in self.actions}
+            # print(f"[!] Action: {actions}")
+            action = max(actions, key=actions.get)
+
         else:
-            action = best_action
+            # state_key = self.take_game_features(game_state)
+            # self.set_action(state_features)
+            action = random.choice(list(ACTION.keys()))
 
-        # return 'BOMB'
+        # if action == 'BOMB':
+        #     self.__bombed = [True, game_state['self'][3]]
         return action
 
 
@@ -64,8 +101,13 @@ class QLearning:
 
 
     def game_events_occurred(self, old_game_state, self_action, new_game_state, events):
+        if e.BOMB_EXPLODED in events:
+            self.__bombed = None
+        if e.BOMB_DROPPED in events:
+            self.__bombed = [True, new_game_state['self'][3]]
         if self.train:
             self.update_q_table(old_game_state, self_action, new_game_state, events)
+        print("--------------------------------------")
 
 
     def end_of_round(self, last_game_state, last_action, events):
@@ -93,48 +135,33 @@ class QLearning:
     
 
     def update_q_table(self, old_state, action, new_state, events):
-        old_key = self.take_game_key(old_state)
-        new_key = self.take_game_key(new_state)
-        
-        # Check if the action is valid
+        old_state_features = self.take_game_features(old_state)
+        new_state_features = self.take_game_features(new_state)
+        old_state_key = self.feature_to_key(old_state_features)
+        new_state_key = self.feature_to_key(new_state_features)
+
         events = self.check_move(old_state, action, new_state, events)
         reward = self.reward_from_events(events)
+
+        best_future_q = np.max(self.q_table[new_state_key])
+
+        current_q = self.q_table[old_state_key, ACTION[action]]
+        new_q = current_q * (1 - self.alpha) + self.alpha * (reward + self.gamma * best_future_q)
+
+        print(f"[!] Real action: {action}")
         print(f"[!] Events: {events}")
-        print(f"[!] Action: {action}")
         print(f"[!] Reward: {reward}")
-        
+        print(f"[!] Old Q-value: {current_q}, New Q-value: {new_q}, Best future Q: {best_future_q}")
 
-        if self.q_table.get(old_key) is None:
-            # Initialize Q-values for the old state if not present
-            self.q_table[old_key] = {a: random.uniform(-2, 0) for a in self.actions}
-        if self.q_table.get(new_key) is None:
-            # Initialize Q-values for the new state if not present
-            self.q_table[new_key] = {a: random.uniform(-2, 0) for a in self.actions}
+        self.q_table[old_state_key, ACTION[action]] = new_q
 
-        max_future_q = max(self.q_table[new_key].values())
-        current_q = self.q_table[old_key][action]
-
-        self.q_table[old_key][action] = current_q + self.alpha * (reward + self.gamma * max_future_q - current_q)
-
-        self.transitions.append(
-            self.__game_state_to_features(new_state)
-        )
-
-        if self.reward_log is not None:
-            self.current_round_reward += reward
-        
-        # print(f"[!] Events: {events}")
-        # print(f"[!] Action: {action}")
-        # print(f"[!] Position: {new_state['self'][3]}")
-        # print(f"[!] Reward: {reward}")
-        # print("-------------------------------------------")
 
 
     def reward_from_events(self, events):
         game_rewards = {
             e.INVALID_ACTION: -100, #
             e.RUN_IN_LOOP:-50,      #
-            e.WAITED: -10,          
+            e.WAITED: -3,          
             e.GET_TRAPPED: -50,
 
             e.GOT_KILLED: -150,
@@ -145,16 +172,16 @@ class QLearning:
             e.MOVED_RIGHT: -1,
             e.MOVED_DOWN: -1,
             e.MOVED_LEFT: -1,
-            
-            e.COIN_COLLECTED: 100,
+
+            e.COIN_COLLECTED: 50,
             e.COIN_DISTANCE_REDUCED: 10,
             e.COIN_DISTANCE_INCREASED: -5,
             e.COIN_FOUND: 15, 
             
             e.BOMB_DROPPED: -10,
-            e.BOMB_DROPPED_NEXT_TO_CRATE: 12,
-            e.BOMB_DROPPED_NEXT_TO_OPPONENT: 15,
-            e.BOMB_AVOIDED : 30,
+            e.BOMB_DROPPED_NEXT_TO_CRATE: 100,
+            e.BOMB_DROPPED_NEXT_TO_OPPONENT: 200,
+            e.BOMB_AVOIDED : 20,
             e.BOMB_DISTANCE_INCREASED: 15,
             
             e.CRATE_DESTROYED: 20,
@@ -164,9 +191,16 @@ class QLearning:
             e.CRATE_WITHOUT_DROPPING_BOMB: -15,
 
             e.KILLED_OPPONENT: 500,
-            e.OPPONENT_DISTANCE_REDUCED: 10,
+            e.OPPONENT_DISTANCE_REDUCED: 1,
             e.OPPONENT_DISTANCE_INCREASED: -5,
-            e.OPPONENT_WITHOUT_DROPPING_BOMB: -15
+            e.OPPONENT_WITHOUT_DROPPING_BOMB: -15,
+
+            e.GET_IN_DANGER: -100,
+            e.IN_DANGER: -5,
+            e.NOT_SAFE_FROM_BOMB: -50,
+            e.SAFE_FROM_BOMB: 100,
+            e.WAITING_IN_DANGER_ZONE: -30,
+            e.NOT_MEANINGFUL_BOMB_DROP: -20
         }
 
         return sum(game_rewards.get(event, 0) for event in set(events))
@@ -174,69 +208,94 @@ class QLearning:
 
     def check_move(self, old_game_state, self_action, new_game_state, events):
         subevent = []
+        old_game_features = self.take_game_features(old_game_state)
+        new_game_features = self.take_game_features(new_game_state)
 
-        old_state = self.__game_state_to_features(old_game_state)
-        new_state = self.__game_state_to_features(new_game_state)
+        print(f"[!] Old game features: {old_game_features}")
+        print(f"[!] New game features: {new_game_features}")
 
-        # Check if the action is valid
-        if self_action not in self.actions:
-            subevent.append(e.INVALID_ACTION)
-
-
-        # Check if the agent moved in a cycle
-        range_x = [float('inf'), 0]
-        range_y = [float('inf'), 0]
-        if len(self.transitions) > 4:
-            for tr in self.transitions:
-                if tr['pos'][0] < range_x[0]:
-                    range_x[0] = tr['pos'][0]
-                if tr['pos'][0] > range_x[1]:
-                    range_x[1] = tr['pos'][0]
-                if tr['pos'][1] < range_y[0]:
-                    range_y[0] = tr['pos'][1]
-                if tr['pos'][1] > range_y[1]:
-                    range_y[1] = tr['pos'][1]
-        if (range_x[1] - range_x[0] < 3)  and (range_y[1] == range_y[0]) or (range_y[1] - range_y[0] < 3) and (range_x[1] == range_x[0]):
-            subevent.append(e.MOVED_IN_CYCLE)
-        
-        # Check if the agent moved to a coin
-        if len(new_state['distance_to_coins']) > 0 and len(old_state['distance_to_coins']) and new_state['distance_to_coins'][0] < old_state['distance_to_coins'][0]:
-            subevent.append(e.MOVED_TO_COIN)
-        elif len(new_state['distance_to_coins']) > 0 and len(old_state['distance_to_coins']) and new_state['distance_to_coins'][0] > old_state['distance_to_coins'][0]:
-            subevent.append(e.MOVED_AWAY_FROM_COIN)
-            
-        # check if the agent dodged a bomb
-        if len(new_state['explosion_map']) > 0 and new_state['pos'] in new_state['explosion_map']:
-            subevent.append(e.NOT_SAFE_FROM_BOMB)
-        elif len(new_state['explosion_map']) > 0 and new_state['pos'] not in new_state['explosion_map']:
-            subevent.append(e.SAFE_FROM_BOMB)
-        
-        # check if the agent dropped a bomb meaningfully
-        if self_action == 'BOMB':
-            # check if the bomb will explode on a crate or an opponent
-            if any(old_game_state['field'][x, y] in [CRATE] for x, y in new_state['explosion_map']) or any((new_state['vector_to_others'][i][0] == 0 and new_state['vector_to_others'][i][1] == 0) and self.__l2_distance(new_state['vector_to_others'][i]) < 5 for i in range(len(new_state['vector_to_others']))):
-                subevent.append(e.MEANINGFUL_BOMB_DROP)
-            else:
-                subevent.append(e.NOT_MEANINGFUL_BOMB_DROP)
-                
-        # check if the agent kill enemy
-        if e.KILLED_OPPONENT in events:
-            subevent.append(e.KILLED_OPPONENT)
-        if e.OPPONENT_ELIMINATED in events:
-            subevent.append(e.OPPONENT_ELIMINATED)
-                
-        events = list(set(events + subevent))
-        
-        # check if the agent killed itself
-        if e.NOT_SAFE_FROM_BOMB in events and e.WAITED in events:
+        # check if action move to bomb
+        if self.__bombed is None and old_game_features[8] == TILE['DANGER'] and new_game_features[8] == TILE['DANGER']:
             subevent.append(e.WAITING_IN_DANGER_ZONE)
 
-        return events
+        if self_action != 'BOMB' and old_game_features[8] != TILE['DANGER'] and new_game_features[8] == TILE['DANGER']:
+            subevent.append(e.GET_IN_DANGER)
+
+        # check if agent move out of danger zone
+        if old_game_features[8] == TILE['DANGER'] and new_game_features[8] != TILE['DANGER']:
+            subevent.append(e.SAFE_FROM_BOMB)
+
+        if self.__bombed is not None and old_game_features[8] == TILE['DANGER'] and new_game_features[8] != TILE['DANGER']:
+            subevent.append(e.BOMB_AVOIDED)
+            self.__bombed = None
+        elif self.__bombed is not None and new_game_state['self'][3] == self.__bombed[1]:
+            subevent.append(e.IN_DANGER)
+    
+
+        # check if meaningful bomb drop
+        if self_action == 'BOMB':
+            if TILE['CRATE'] in old_game_features[:8]:
+                subevent.append(e.BOMB_DROPPED_NEXT_TO_CRATE)
+
+        elif self_action == 'BOMB' and TILE['OTHER'] in old_game_features[:8]:
+            subevent.append(e.BOMB_DROPPED_NEXT_TO_OPPONENT)
+
+        elif self_action == 'BOMB' and TILE['CRATE'] not in old_game_features[:8] and TILE['OTHER'] not in old_game_features[:8]:
+            subevent.append(e.NOT_MEANINGFUL_BOMB_DROP)
+
+        # check if move close to other
+        # if self.__l2_distance(new_game_features[5:7]) < self.__l2_distance(old_game_features[5:7]):
+        #     subevent.append(e.OPPONENT_DISTANCE_REDUCED)
+
+        return events + subevent
         
+
+    def set_action(self, game_state):
+        game_features = self.take_game_features(game_state)
+
+        action = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+
+        # do not wait in danger zone
+        if game_features[8] == TILE['DANGER']:
+            action.remove('WAIT')
+
+        # check tile can move
+        if game_features[0] in [TILE['WALL'], TILE['CRATE']]:
+            action.remove('UP')
+        if game_features[2] in [TILE['WALL'], TILE['CRATE']]:
+            action.remove('RIGHT')
+        if game_features[4] in [TILE['WALL'], TILE['CRATE']]:
+            action.remove('DOWN')
+        if game_features[6] in [TILE['WALL'], TILE['CRATE']]:
+            action.remove('LEFT')
+
+        # check if can bomb
+        if not self.__able_to_bomb(game_state):
+            action.remove('BOMB')
+        
+
+        self.actions = action
+        print(f"[!] Available actions: {self.actions}")
+        return action
+
+
+
+
     def __able_to_bomb(self, game_state):
-        ...    
-    
-    
+        game_key = self.take_game_features(game_state)
+        # print(f"[!] Game key: {game_key}")
+        if game_key[9] != 1:
+            return False
+        
+        w, h = game_state['field'].shape
+        x, y = game_state['self'][3]
+        # map2check = game_state['field'][max(0, y-3):min(h, y+4), max(0, x-3):min(w, x+4)]
+        map2check = game_state['field'].copy()
+
+        if any(map2check[y-1, i] == TILE['FREE'] for i in range(max(0, x-3), x)) or any(map2check[y-1, i] == TILE['FREE'] for i in range(x+1, min(w, x+4))) or any(map2check[i, x-1] == TILE['FREE'] for i in range(max(0, y-3), y)) or any(map2check[i, x-1] == TILE['FREE'] for i in range(y+1, min(h, y+4))) or any(map2check[y+1, i] == TILE['FREE'] for i in range(max(0, x-3), x)) or any(map2check[y+1, i] == TILE['FREE'] for i in range(x+1, min(w, x+4))) or any(map2check[i, x+1] == TILE['FREE'] for i in range(max(0, y-3), y)) or any(map2check[i, x+1] == TILE['FREE'] for i in range(y+1, min(h, y+4))) or any(game_key[:9]) == TILE['OTHER']:
+            return True
+        return False
+
     def __l2_distance(self, pos:list):
         """
         Calculate the L2 distance from the agent's position to a given position.
@@ -259,27 +318,25 @@ class QLearning:
         for bomb in bombs:
             # horizontal check
             x, y = bomb[0]
-            if field[y, x+1] != WALL:
-                explosion_map.append((x+1, y))
-                if field[y, min(x+2, w-1)] != WALL:
-                    explosion_map.append((min(x+2, w-1), y))
-            if field[y, x-1] != WALL:
-                explosion_map.append((x-1, y))
-                if field[y, max(x-2, 0)] != WALL:
-                    explosion_map.append((x-2, y))
-            
-            # vertical check
-            if field[y+1, x] != WALL:
-                explosion_map.append((x, y+1))
-                if field[min(y+2, h-1), x] != WALL:
-                    explosion_map.append((x, min(y+2, h-1)))
-            if field[y-1, x] != WALL:
-                explosion_map.append((x, y-1))
-                if field[max(y-2, 0), x] != WALL:
-                    explosion_map.append((x, max(y-2, 0)))
+            power = 3
+            for dx in range(1, power + 1):
+                if x + dx >= w or field[y, x + dx] == TILE['WALL']:
+                    break
+                explosion_map.append((x + dx, y))  # Right
+            for dx in range(1, power + 1):
+                if x - dx < 0 or field[y, x - dx] == TILE['WALL']:
+                    break
+                explosion_map.append((x - dx, y))
+            for dy in range(1, power + 1):
+                if y + dy >= h or field[y + dy, x] == TILE['WALL']:
+                    break
+                explosion_map.append((x, y + dy))
+            for dy in range(1, power + 1):
+                if y - dy < 0 or field[y - dy, x] == TILE['WALL']:
+                    break
+                explosion_map.append((x, y - dy))
             explosion_map.append((x, y))  # Add the bomb's position itself
 
-        # print(f"[!] Explosion map: {explosion_map}")
         return explosion_map
 
 
@@ -298,41 +355,49 @@ class QLearning:
         # bomb or not
         has_bom = game_state['self'][2] > 0
         w, h = game_state['field'].shape
+        game_state_field = game_state['field'].copy()
+        explosion_map = self.__tile_to_explosion(game_state['bombs'], game_state_field)
+        for ex in explosion_map:
+            if 0 <= ex[0] < w and 0 <= ex[1] < h:
+                # print(f"[!] Explosion at: {ex[0]}, {ex[1]}")
+                game_state_field[ex[1], ex[0]] = TILE['DANGER']
+        # print(f"[!] Game state field: \n{game_state_field.T}")
+    
+        for other in game_state['others']:
+            game_state_field[other[3][1], other[3][0]] = TILE['OTHER']
 
-        # extract field features
-        offset = 1
-        # field = game_state['field'].copy()
-        # field = np.zeros((h, w), dtype=int)
-        # field[max(0, y - offset):min(h, y + offset + 1),
-            #   max(0, x - offset):min(w, x + offset + 1)] = game_state['field'][max(0, y - offset):min(h, y + offset + 1),
-                                                                            #    max(0, x - offset):min(w, x + offset + 1)]
-        field = game_state['field'].copy()
+        field = []
+        field.append(game_state_field[y-1, x] if y > 0 else WALL)
+        field.append(game_state_field[y-2, x] if y > 1 else WALL)
+        field.append(game_state_field[y, x+1] if x < w-1 else WALL)
+        field.append(game_state_field[y, x+2] if x < w-2 else WALL)
+        field.append(game_state_field[y+1, x] if y < h-1 else WALL)
+        field.append(game_state_field[y+2, x] if y < h-2 else WALL)
+        field.append(game_state_field[y, x-1] if x > 0 else WALL)
+        field.append(game_state_field[y, x-2] if x > 1 else WALL)
+        field.append(game_state_field[y, x])  # Center tile
 
-        # where will be explosions
-        explosion_map = self.__tile_to_explosion(game_state['bombs'], game_state['field'])
+        vec2others = self.__vector_to_others(game_state['self'], game_state['others'])
+        min_vec = min(vec2others, key=lambda v: np.linalg.norm(v)) if vec2others else [0, 0]
 
-        distance_to_coins = self.__distance_to_coins(game_state['self'], game_state['coins'])
+        can_bomb = 1 if has_bom and game_state['self'][2] > 0 else 0
 
-        vector_to_others = self.__vector_to_others(game_state['self'], game_state['others'])
+        # return list(field) + list(min_vec) + [can_bomb]
+        return list(field) + [can_bomb]
 
-        features = {
-            'field': field,
-            'explosion_map': explosion_map,
-            'pos': (x, y),
-            'has_bom': has_bom,
-            'distance_to_coins': distance_to_coins,
-            'vector_to_others': vector_to_others
-        }
 
-        return features
+    def feature_to_key(self, features):
+        base_sizes = [len(ACTION)]*9 + [2]
+        index = 0
+        for val, base in zip(features, base_sizes):
+            index = index * base + val
+        return index
 
-        
-    def take_game_key(self, game_state):
+
+    def take_game_features(self, game_state):
         features = self.__game_state_to_features(game_state)
-        hashing_key = self.__hashing_game_state(features)
-        if hashing_key not in self.q_table:
-            self.q_table[hashing_key] = {action: random.uniform(-2, 0) for action in self.actions}
-        return hashing_key
+        # key = self.key_to_index(features)
+        return features
 
 
     def __hashing_game_state(self, game_state):
@@ -361,6 +426,6 @@ class QLearning:
         try:
             with open(filename, 'rb') as f:
                 self.q_table = pickle.load(f)
-        except FileNotFoundError:
-            print("[!] Q-table file not found. Starting fresh.")
+        except FileNotFoundError as e:
+            print(f"[!] Q-table file not found: {e}. Starting fresh.")
             self.q_table = {}

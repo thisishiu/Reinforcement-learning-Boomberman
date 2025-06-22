@@ -1,7 +1,7 @@
 from agent_code.new_bie.Q_learn import QLearning
 
-model_path = "agent_code/new_bie/model/q_learn_1.pkl"
-reward_log = "agent_code/new_bie/logs/reward_log_1.csv"
+model_path = "agent_code/new_bie/model/q_learn_12.pkl"
+reward_log = "agent_code/new_bie/logs/reward_log_12.csv"
 
 def setup(self):
     self.model = QLearning(train=self.train, model_path=model_path, reward_log=reward_log)
