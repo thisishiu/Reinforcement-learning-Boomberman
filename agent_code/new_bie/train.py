@@ -1,5 +1,5 @@
-from agent_code.new_bie.Q_learn import QLearning
-import random
+# from agent_code.new_bie.Q_learn import QLearning
+# import random
 
 def setup_training(self):
     pass
@@ -9,3 +9,6 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     
 def end_of_round(self, last_game_states, last_action, events):
     return self.model.end_of_round(last_game_states, last_action, events)
+
+def end(self, last_game_states, last_action, events):
+    return self.model.end(last_game_states, last_action, events)

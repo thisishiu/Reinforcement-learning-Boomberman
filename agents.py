@@ -23,7 +23,8 @@ AGENT_API = {
         "setup_training": ["self"],
         "game_events_occurred": ["self", "old_game_state: dict", "self_action: str", "new_game_state: dict", "events: List[str]"],
         # "enemy_game_events_occurred": ["self", "enemy_name: str", "old_enemy_game_state: dict", "enemy_action: str", "enemy_game_state: dict", "enemy_events: List[str]"],
-        "end_of_round": ["self", "last_game_state: dict", "last_action: str", "events: List[str]"]
+        "end_of_round": ["self", "last_game_state: dict", "last_action: str", "events: List[str]"],
+        "end": ["self", "last_game_state: dict", "last_action: str", "events: List[str]"]
     }
 }
 
@@ -183,6 +184,10 @@ class Agent:
     def round_ended(self):
         self.backend.send_event("end_of_round", self.last_game_state, self.last_action, self.events)
         self.backend.get("end_of_round")
+        
+    def end(self):
+        self.backend.send_event("end", self.last_game_state, self.last_action, self.events)
+        self.backend.get("end")
 
     def render(self, screen, x, y):
         """Draw the agent's avatar to the screen at the given coordinates."""
