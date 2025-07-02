@@ -36,7 +36,7 @@ ACTION = {
 
 
 class QLearning:
-    def __init__(self, train=True, epsilon=0.1, alpha=0.7, gamma=0.8, model_path=None, reward_log=None):
+    def __init__(self, train=True, epsilon=0.1, alpha=0.1, gamma=0.8, model_path=None, reward_log=None):
         self.epsilon = epsilon
         self.alpha = alpha
         self.gamma = gamma
@@ -95,9 +95,9 @@ class QLearning:
             reward_log_path = os.path.join(_path, self.reward_log) 
 
             f = open(reward_log_path, 'w')
-            f.write("episode,reward\n")
-            for i, r in enumerate(self.reward_log_list):
-                f.write(f"{i},{r}\n")
+            f.write("episode,reward,step\n")
+            for i, (r, s) in enumerate(self.reward_log_list):
+                f.write(f"{i},{r},{s}\n")
 
 
     def game_events_occurred(self, old_game_state, self_action, new_game_state, events):
@@ -118,7 +118,8 @@ class QLearning:
         
         if self.reward_log is not None:
             self.current_round_reward += self.reward_from_events(events)
-            self.reward_log_list.append(self.current_round_reward)
+            step = last_game_state['step']
+            self.reward_log_list.append([self.current_round_reward, step])
             self.current_round_reward = 0
             # print(f"[!] Reward log saved to {self.reward_log}")
 
@@ -130,7 +131,8 @@ class QLearning:
             
         if self.reward_log is not None:
             self.current_round_reward += self.reward_from_events(events)
-            self.reward_log_list.append(self.current_round_reward)
+            step = last_game_state['step']
+            self.reward_log_list.append([self.current_round_reward, step])
             self.log()
     
 
