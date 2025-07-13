@@ -1,0 +1,32 @@
+models/07-12_22-39_746_250.plk
+---------------------------------------------
+    def get_events(self, old_game_state: dict, self_action: str, new_game_state: dict, events: list[str]):
+        # info
+        old_cor = old_game_state["self"][3]
+        new_cor = new_game_state["self"][3]
+        # had_bomd = old_game_state["self"][2]
+        extend_events = []
+
+        # check if agent get into explosion map
+        if old_game_state["explosion_map"][old_cor[0], old_cor[1]] == 0 and new_game_state["explosion_map"][new_cor[0], new_cor[1]] != 0 and self_action not in ['WAIT ', 'BOMB']:
+            extend_events.append(e.GET_IN_DANGER)
+
+        # print(old_game_state["explosion_map"])
+
+        # check if egent wait in danger
+        if old_game_state["explosion_map"][old_cor[0], old_cor[1]] > 0 and self_action == 'WAIT':
+            extend_events.append(e.WAITING_IN_DANGER_ZONE)
+
+        # in danger zone
+        if old_game_state["explosion_map"][old_cor[0], old_cor[1]] != 0 and new_game_state["explosion_map"][new_cor[0], new_cor[1]] != 0:
+            extend_events.append(e.IN_DANGER)
+        
+        # bomb near crate
+        if self_action == 'BOMB' and any(old_game_state['field'][old_cor[1]+i, old_cor[0]+j] == TILE['CRATE'] for i, j in [(-1, 0), (1, 0), (0, -1), (0, 1)]):
+            extend_events.append(e.BOMB_DROPPED_NEXT_TO_CRATE)
+
+def state_to_feature(self, game_state:dict):
+    # Using all state
+    feature = field + bombs + explosion_map + coins + self_ + others
+---------------------------------------------
+

@@ -245,6 +245,7 @@ class GenericWorld:
                 for a in self.active_agents:
                     if (not a.dead) and (a.x, a.y) in explosion.blast_coords:
                         agents_hit.add(a)
+
                         # Note who killed whom, adjust scores
                         if a is explosion.owner:
                             self.logger.info(f'Agent <{a.name}> blown up by own bomb')
@@ -253,6 +254,7 @@ class GenericWorld:
                         else:
                             self.logger.info(f'Agent <{a.name}> blown up by agent <{explosion.owner.name}>\'s bomb')
                             self.logger.info(f'Agent <{explosion.owner.name}> receives 1 point')
+                            a.add_event(e.GOT_KILLED) # fix here
                             explosion.owner.update_score(s.REWARD_KILL)
                             explosion.owner.add_event(e.KILLED_OPPONENT)
                             explosion.owner.trophies.append(pygame.transform.smoothscale(a.avatar, (15, 15)))
@@ -261,7 +263,7 @@ class GenericWorld:
         for a in agents_hit:
             a.dead = True
             self.active_agents.remove(a)
-            a.add_event(e.GOT_KILLED)
+            # a.add_event(e.GOT_KILLED)
             for aa in self.active_agents:
                 if aa is not a:
                     aa.add_event(e.OPPONENT_ELIMINATED)
@@ -410,11 +412,13 @@ class BombeRLeWorld(GenericWorld):
 
         explosion_map = np.zeros(self.arena.shape)
         for exp in self.explosions:
+            # print(exp.timer) # fix here
             if exp.is_dangerous():
                 for (x, y) in exp.blast_coords:
+                    # print(exp.timer)
                     explosion_map[x, y] = max(explosion_map[x, y], exp.timer - 1)
         state['explosion_map'] = explosion_map
-
+        # print(explosion_map) # fix here
         return state
 
     def poll_and_run_agents(self):

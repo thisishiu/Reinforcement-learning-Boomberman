@@ -50,11 +50,13 @@ def look_for_targets(free_space, start, targets, logger=None):
                 dist_so_far[neighbor] = dist_so_far[current] + 1
     if logger: logger.debug(f'Suitable target found at {best}')
     # Determine the first step towards the best found target tile
+    
+    
     current = best
     while True:
-        if parent_dict[current] == start: return current
+        if parent_dict[current] == start:
+            return current
         current = parent_dict[current]
-
 
 def setup(self):
     """Called once before a set of games to initialize data structures etc.
