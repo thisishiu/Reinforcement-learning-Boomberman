@@ -9,12 +9,11 @@ class BasicNN:
     def __init__(self):
         pass
 
-    def setup(self, input_size:int, output_size:int, gamma = 0.8, alpha = 0.005):
+    def setup(self, input_size:int, output_size:int, gamma = 0.8, alpha = 0.1):
 
         self.input_size = input_size
         self.output_size = output_size
 
-        # Remember handle pretrained case
         self.theta = {
             "W": np.random.random(size=(output_size, input_size)),
             "B": np.random.random(size=(output_size, 1))
@@ -30,15 +29,11 @@ class BasicNN:
         
         z = self.theta["W"] @ state + self.theta["B"]
         pi = self.softmax(z)
-        # print(y_pred)
         return pi
 
     def update_theta(self):
         self.theta['W'] += self.alpha * self.grad_W
         self.theta['B'] += self.alpha * self.grad_B
-        # print(f"[NN] Update theta")
-        # print(self.grad_W)
-        # print(self.grad_B)
 
     def setup_log_grad(self):
         self.log_grad = []
@@ -113,8 +108,12 @@ class BasicNN:
         if path is None:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             models_path = os.path.join(current_dir, "models")
+            
             files = [f for f in os.listdir(models_path) if os.path.isfile(os.path.join(models_path, f))]
+            
             if files:
+                files.sort(key=lambda f: os.path.getctime(os.path.join(models_path, f)), reverse=True)
+                
                 file = files[0]
                 path = os.path.join(models_path, file)
             else:

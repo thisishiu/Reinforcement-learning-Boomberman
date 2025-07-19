@@ -213,8 +213,8 @@ class QLearning:
         old_game_features = self.take_game_features(old_game_state)
         new_game_features = self.take_game_features(new_game_state)
 
-        print(f"[!] Old game features: {old_game_features}")
-        print(f"[!] New game features: {new_game_features}")
+        # print(f"[!] Old game features: {old_game_features}")
+        # print(f"[!] New game features: {new_game_features}")
 
         # check if action move to bomb
         if self.__bombed is None and old_game_features[8] == TILE['DANGER'] and new_game_features[8] == TILE['DANGER']:
