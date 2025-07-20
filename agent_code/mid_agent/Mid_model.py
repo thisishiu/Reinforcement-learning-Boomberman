@@ -130,7 +130,7 @@ class MidModel:
             extend_events.append(e.BOMB_DROPPED_NEXT_TO_CRATE)
 
         # repeat an action
-        if len(self.q) == self.q.maxlen and len(set(a for a in list(self.q)[0:s.BOMB_TIMER])) < 3:
+        if len(self.q) == self.q.maxlen and len(set(a for a in list(self.q)[s.BOMB_TIMER-1:self.q.maxlen])) < 3:
             extend_events.append(e.RUN_IN_LOOP)
 
         # if there are some ways to run after bomb:
@@ -160,7 +160,7 @@ class MidModel:
                     break
                 
         # if agent do not move for a long time
-        if len(self.q) == self.q.maxlen and len(set(a for a in list(self.q)[0:s.BOMB_TIMER])) == 1:
+        if len(self.q) == self.q.maxlen and len(set(a for a in list(self.q)[s.BOMB_TIMER:self.q.maxlen])) == 1:
             extend_events.append(e.LONG_TIME_1_ACTION)
         
         # if agent no bomb for a long time
@@ -282,7 +282,7 @@ class MidModel:
 
         x, y = game_state["self"][3][0], game_state["self"][3][1]
 
-        field = self.__map_aronud((x, y), game_state['field'], -1).flatten()
+        field = self.__map_around((x, y), game_state['field'], -1).flatten()
 
         bombs = []
         for i in range(2):
@@ -293,7 +293,7 @@ class MidModel:
         bomb = np.array(bombs)
         bomb = bomb / s.COLS # or s.ROWS        
 
-        explosion_around = self.__map_aronud((x, y), self.__explosion_map(game_state["bombs"], game_state["field"])).flatten()
+        explosion_around = self.__map_around((x, y), self.__explosion_map(game_state["bombs"], game_state["field"])).flatten()
         explosion_around = explosion_around / s.BOMB_TIMER
 
         coins = [game_state["coins"][0][0], game_state["coins"][0][1]] if game_state["coins"] else [-1, -1]
@@ -320,15 +320,15 @@ class MidModel:
         vec2coin = np.array([coins[0] - x, coins[1] - y]) / s.COLS
         vec2other = np.array([others[0] - x, others[1] - y]) / s.COLS
         
-        matrix2coin = self.__matrix2others(vec2coin)
-        matrix2other = self.__matrix2others(vec2other)
+        # matrix2coin = self.__matrix2others(vec2coin)
+        # matrix2other = self.__matrix2others(vec2other)
 
-        feature = np.concatenate([[x/s.COLS], [y/s.COLS], field, has_bomb, explosion_around, matrix2coin,  matrix2other])
+        feature = np.concatenate([[x/s.COLS], [y/s.COLS], field, has_bomb, explosion_around, vec2coin,  vec2other])
 
         # print(feature)
         return feature
     
-    def __map_aronud(self, pos:list, explosion_map:np.ndarray, padding=0, offset=5):
+    def __map_around(self, pos:list, explosion_map:np.ndarray, padding=0, offset=7):
         x = pos[0]
         y = pos[1]
 

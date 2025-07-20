@@ -9,7 +9,7 @@ class BasicNN:
     def __init__(self):
         pass
 
-    def setup(self, input_size:int, output_size:int, gamma = 0.8, alpha = 2):
+    def setup(self, input_size:int, output_size:int, gamma = 0.9, alpha = 0.1):
 
         self.input_size = input_size
         self.output_size = output_size
@@ -50,26 +50,15 @@ class BasicNN:
     def setup_G(self):
         self.G = []
 
-    # def update_G(self):
-    #     if not hasattr(self, "G"):
-    #         raise ValueError(f"G has not been intial yet!")
-    #     G = self.G
-    #     for i in range(len(G) - 1 , -1, -1):
-    #         if i != len(G) - 1:
-    #             G[i] = G[i+1] * self.gamma + G[i]
-
-    #     self.G = (G - np.mean(G)) / (np.std(G) + 1e-8)
-        
     def update_G(self):
         if not hasattr(self, "G"):
-            raise ValueError(f"G has not been initial yet!")
+            raise ValueError(f"G has not been intial yet!")
         G = self.G
-        discounted_G = np.zeros_like(G)
-        discounted_G[-1] = G[-1]
-        for i in range(len(G)-2, -1, -1):
-            discounted_G[i] = discounted_G[i+1] * self.gamma + G[i]
-        discounted_G = (discounted_G - np.mean(discounted_G)) / (np.std(discounted_G) + 1e-8)
-        self.G = discounted_G
+        for i in range(len(G) - 1 , -1, -1):
+            if i != len(G) - 1:
+                G[i] = G[i+1] * self.gamma + G[i]
+
+        self.G = (G - np.mean(G)) / (np.std(G) + 1e-8)
 
     def log_likelihood(self, pi:np.ndarray, choice:int, feature:np.ndarray):
 
