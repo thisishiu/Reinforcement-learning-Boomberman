@@ -34,7 +34,7 @@ class MidModel:
                        "BOMB"]
         
         self.logging = []
-        self.q = deque(maxlen=s.BOMB_TIMER)
+        self.q = deque(maxlen=int(s.BOMB_TIMER * 2.5))
         
     def act(self, game_state:dict):
         feature = self.state_to_feature(game_state=game_state).reshape(-1, 1)
@@ -44,10 +44,10 @@ class MidModel:
         self.old_feature = feature
         self.pi=self.network.forward(feature)
 
-        print(np.array2string(self.pi.T, separator=', ', suppress_small=False, max_line_width=np.inf))
-        return 'WAIT'
+        # print(np.array2string(self.pi.T, separator=', ', suppress_small=True, max_line_width=np.inf, formatter={'float_kind': lambda x: f"{x:.8f}"}))
+        # return 'WAIT'
         # return np.random.choice(self.action)
-        # return np.random.choice(self.action, p=self.pi.flatten())
+        return np.random.choice(self.action, p=self.pi.flatten())
 
 
     def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: list[str]):
@@ -59,20 +59,25 @@ class MidModel:
         t = old_game_state['step']
         n = old_game_state['round']
 
-        print(f"{self_action} - {events} | {r}")
+        # print(f"{self_action} - {events} | {r}")
 
         self.logging.append([n, t, r])
         self.q.append(self_action)
 
         if not hasattr(self.network, 'G') or self.network.G is None:
-            self.network.sutup_G()
+            self.network.setup_G()
         if not hasattr(self.network, "log_grad") or self.network.log_grad is None:
             self.network.setup_log_grad()
         
         self.network.G.append(r)
         self.network.log_grad.append([self.pi.copy(), self.action.index(self_action), self.old_feature.copy()])
-
-
+        
+        # self.network.update_G()
+        # self.network.update_log_grad()
+        # self.network.update_theta()
+        
+        # self.network.G = []
+        # self.network.log_grad = []
 
     def end_of_round(self, last_game_state: dict, last_action: str, events: list[str]):
         """
@@ -80,16 +85,17 @@ class MidModel:
         """
         r = self.get_reward(events=events)
         self.network.G[-1] += r
+        # self.network.G.append(r)
+        # self.network.log_grad.append([self.pi.copy(), self.action.index(last_action), self.old_feature.copy()])
 
-        print(f"{last_action} - {events} | {r}")
+        # print(f"{last_action} - {events} | {r}")
 
         self.network.update_G()
         self.network.update_log_grad()
-
         self.network.update_theta()
 
-        self.network.G = None
-        self.network.log_grad = None
+        self.network.G = []
+        self.network.log_grad = []
         # print(f"[INF] End of round!")
 
 
@@ -124,7 +130,7 @@ class MidModel:
             extend_events.append(e.BOMB_DROPPED_NEXT_TO_CRATE)
 
         # repeat an action
-        if len(self.q) == self.q.maxlen and len(set(a for a in self.q)) < 3:
+        if len(self.q) == self.q.maxlen and len(set(a for a in list(self.q)[0:s.BOMB_TIMER])) < 3:
             extend_events.append(e.RUN_IN_LOOP)
 
         # if there are some ways to run after bomb:
@@ -137,6 +143,29 @@ class MidModel:
         matching = ["UP", "RIGHT", "DOWN", "LEFT"]
         if self_action not in ["BOMB", "WAIT"] and 'INVALID_ACTION' not in events and matrix2other[matching.index(self_action)] == 1:
             extend_events.append(e.OPPONENT_DISTANCE_REDUCED)
+
+        # distance to coin
+        if old_game_state["coins"]:
+            coins = old_game_state["coins"][0]
+            vec2coin = [coins[0] - new_cor[0], coins[1] - new_cor[1]]
+            matrix2coin = self.__matrix2others(vec2coin)
+            if self_action not in ["BOMB", "WAIT"] and 'INVALID_ACTION' not in events and matrix2coin[matching.index(self_action)] == 1:
+                extend_events.append(e.COIN_DISTANCE_REDUCED)
+                
+        # drop bomb next to opponent
+        if self_action == 'BOMB' and had_bomd and old_game_state["others"]:
+            for other in old_game_state["others"]:
+                if other[3][0] in range(old_cor[0] - 1, old_cor[0] + 2) and other[3][1] in range(old_cor[1] - 1, old_cor[1] + 2):
+                    extend_events.append(e.BOMB_DROPPED_NEXT_TO_OPPONENT)
+                    break
+                
+        # if agent do not move for a long time
+        if len(self.q) == self.q.maxlen and len(set(a for a in list(self.q)[0:s.BOMB_TIMER])) == 1:
+            extend_events.append(e.LONG_TIME_1_ACTION)
+        
+        # if agent no bomb for a long time
+        if len(self.q) == self.q.maxlen and len(set(a for a in self.q if a == "BOMB")) == 0:
+            extend_events.append(e.LONG_TIME_NO_BOMB)
 
         events = events + extend_events
         return events
@@ -204,7 +233,7 @@ class MidModel:
 
             e.BOMB_DROPPED : -1,
             e.BOMB_DROPPED_NEXT_TO_CRATE : 5,
-            e.BOMB_DROPPED_NEXT_TO_OPPONENT : 0,
+            e.BOMB_DROPPED_NEXT_TO_OPPONENT : 20,
             e.BOMB_EXPLODED : 0,
             e.BOMB_AVOIDED : 10,
             e.BOMB_DISTANCE_INCREASED : 0,
@@ -230,13 +259,15 @@ class MidModel:
             e.SURVIVED_ROUND : 100,
 
             e.OPPONENT_ELIMINATED : 20,
-            e.OPPONENT_DISTANCE_REDUCED : 5,
+            e.OPPONENT_DISTANCE_REDUCED : 10,
             e.OPPONENT_DISTANCE_INCREASED : 0,
             e.OPPONENT_WITHOUT_DROPPING_BOMB : 0,
 
-            e.COIN_DISTANCE_REDUCED : 0,
+            e.COIN_DISTANCE_REDUCED : 10,
             e.COIN_DISTANCE_INCREASED : 0,
 
+            e.LONG_TIME_NO_BOMB : -20,
+            e.LONG_TIME_1_ACTION : -20,
             e.THERE_IS_NO_WAY_RUN : - 20,
             e.WAITING_IN_DANGER_ZONE : -20,
             e.GET_IN_DANGER : -20,
@@ -251,22 +282,24 @@ class MidModel:
 
         x, y = game_state["self"][3][0], game_state["self"][3][1]
 
-        field = self.__map_aronud((x, y), game_state['field'], -1).flatten().tolist()
+        field = self.__map_aronud((x, y), game_state['field'], -1).flatten()
 
         bombs = []
-        for i in range(3):
+        for i in range(2):
             if i < len(game_state["bombs"]):
-                bombs.extend([game_state['bombs'][i][0][0], game_state['bombs'][i][0][1], game_state['bombs'][i][1]])
+                bombs.extend([game_state['bombs'][i][0][0], game_state['bombs'][i][0][1]])
             else:
-                bombs.extend([-1, -1, -1])
+                bombs.extend([-1, -1])
+        bomb = np.array(bombs)
+        bomb = bomb / s.COLS # or s.ROWS        
 
-        # explosion_map = self.__explosion_map(game_state["bombs"], game_state["field"]).flatten().tolist()
-        explosion_around = self.__map_aronud((x, y), self.__explosion_map(game_state["bombs"], game_state["field"])).flatten().tolist()
+        explosion_around = self.__map_aronud((x, y), self.__explosion_map(game_state["bombs"], game_state["field"])).flatten()
+        explosion_around = explosion_around / s.BOMB_TIMER
 
         coins = [game_state["coins"][0][0], game_state["coins"][0][1]] if game_state["coins"] else [-1, -1]
 
         # current score, has bomb?, x, y
-        self_ = [game_state["self"][1], game_state["self"][2], x, y]
+        has_bomb = [game_state["self"][2]]
 
         others = []
         #---------- 3 others -----------------------------
@@ -279,17 +312,22 @@ class MidModel:
 
         #---------- 1 other ------------------------------
         if game_state["others"]:
-            others.extend([game_state["others"][0][2], game_state["others"][0][3][0], game_state["others"][0][3][1]])
+            others.extend([game_state["others"][0][2], game_state["others"][0][3][0] / s.COLS, game_state["others"][0][3][1] / s.COLS])
         else:
             others.extend([-1, -1, -1])
         #-------------------------------------------------
 
-        vec2coin = [coins[0] - x, coins[1] - y]
-        vec2other = [others[0] - x, others[1] - y]
+        vec2coin = np.array([coins[0] - x, coins[1] - y]) / s.COLS
+        vec2other = np.array([others[0] - x, others[1] - y]) / s.COLS
+        
+        matrix2coin = self.__matrix2others(vec2coin)
+        matrix2other = self.__matrix2others(vec2other)
 
-        feature = field + bombs + explosion_around + self_ + coins + vec2coin + vec2other
-        return np.array(feature, dtype=int)
+        feature = np.concatenate([[x/s.COLS], [y/s.COLS], field, has_bomb, explosion_around, matrix2coin,  matrix2other])
 
+        # print(feature)
+        return feature
+    
     def __map_aronud(self, pos:list, explosion_map:np.ndarray, padding=0, offset=5):
         x = pos[0]
         y = pos[1]
