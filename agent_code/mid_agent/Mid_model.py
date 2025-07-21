@@ -222,10 +222,10 @@ class MidModel:
 
     def get_reward(self, events):
         mapping = {
-            e.MOVED_LEFT : -1,
-            e.MOVED_RIGHT : -1,
-            e.MOVED_UP : -1,
-            e.MOVED_DOWN : -1,
+            e.MOVED_LEFT : 1,
+            e.MOVED_RIGHT : 1,
+            e.MOVED_UP : 1,
+            e.MOVED_DOWN : 1,
             e.WAITED : 0,
             e.INVALID_ACTION : -5,
             e.VALID_ACTION : 0,
