@@ -1,2 +1,2 @@
-agent_code/mid_agent/ana.ipynb
-agent_code/new_bie/ana.ipynb
+**/logs/
+**/*.pkl
