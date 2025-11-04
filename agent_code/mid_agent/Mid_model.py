@@ -59,7 +59,7 @@ class MidModel:
         t = old_game_state['step']
         n = old_game_state['round']
 
-        # print(f"{self_action} - {events} | {r}")
+        print(f"{self_action} - {events} | {r}")
 
         self.logging.append([n, t, r])
         self.q.append(self_action)
@@ -88,7 +88,7 @@ class MidModel:
         # self.network.G.append(r)
         # self.network.log_grad.append([self.pi.copy(), self.action.index(last_action), self.old_feature.copy()])
 
-        # print(f"{last_action} - {events} | {r}")
+        print(f"{last_action} - {events} | {r}")
 
         self.network.update_G()
         self.network.update_log_grad()
